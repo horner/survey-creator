@@ -264,3 +264,88 @@ test("We should have one SurveyTextWorker.fromJSON/toJSON", () => {
   expect(counter).toBe(1);
   SurveyTextWorker.onProcessJson = undefined;
 });
+
+test("JsonEditor & unknown properties as warnings", () => {
+  const { settings } = require("../../src/creator-settings");
+  const originalSetting = settings.jsonEditor.allowUnknownProperties;
+  
+  try {
+    // Enable warnings for unknown properties
+    settings.jsonEditor.allowUnknownProperties = true;
+    
+    const creator = new CreatorTester();
+    const editor = new TextareaJsonEditorModel(creator);
+    editor.text = JSON.stringify({
+      elements: [
+        {
+          type: "text",
+          name: "bodyTemperature", 
+          title: "Body Temperature",
+          loincCode: "8310-5",
+          "x-tooltip": "Use a thermometer"
+        }
+      ]
+    }, null, 3);
+    
+    editor.processErrors(editor.text);
+    
+    // Should have warnings but not errors
+    expect(editor.hasErrors).toBeFalsy(); // No blocking errors
+    expect(editor.errorList.actions).toHaveLength(2); // Two warnings shown
+    
+    // Check that warnings are displayed correctly
+    const firstWarning = editor.errorList.actions[0];
+    expect(firstWarning.iconName).toBe("icon-warning");
+    expect(firstWarning.data.showFixButton).toBeFalsy(); // No fix button for warnings
+    
+    const secondWarning = editor.errorList.actions[1];
+    expect(secondWarning.iconName).toBe("icon-warning");
+    expect(secondWarning.data.showFixButton).toBeFalsy(); // No fix button for warnings
+    
+  } finally {
+    // Restore original setting
+    settings.jsonEditor.allowUnknownProperties = originalSetting;
+  }
+});
+
+test("JsonEditor & mixed errors and warnings", () => {
+  const { settings } = require("../../src/creator-settings");
+  const originalSetting = settings.jsonEditor.allowUnknownProperties;
+  
+  try {
+    // Enable warnings for unknown properties
+    settings.jsonEditor.allowUnknownProperties = true;
+    
+    const creator = new CreatorTester();
+    const editor = new TextareaJsonEditorModel(creator);
+    editor.text = JSON.stringify({
+      elements: [
+        {
+          type: "text",
+          // Missing required name property (should be error)
+          loincCode: "8310-5" // Unknown property (should be warning)
+        }
+      ]
+    }, null, 3);
+    
+    editor.processErrors(editor.text);
+    
+    // Should have errors due to missing name
+    expect(editor.hasErrors).toBeTruthy(); 
+    expect(editor.errorList.actions).toHaveLength(2); // One error + one warning
+    
+    // Find the error and warning
+    const errorAction = editor.errorList.actions.find(action => action.iconName === "icon-error");
+    const warningAction = editor.errorList.actions.find(action => action.iconName === "icon-warning");
+    
+    expect(errorAction).toBeDefined();
+    expect(warningAction).toBeDefined();
+    
+    expect(errorAction.data.showFixButton).toBeTruthy(); // Error can be fixed
+    expect(warningAction.data.showFixButton).toBeFalsy(); // Warning cannot be fixed
+    
+  } finally {
+    // Restore original setting
+    settings.jsonEditor.allowUnknownProperties = originalSetting;
+  }
+});

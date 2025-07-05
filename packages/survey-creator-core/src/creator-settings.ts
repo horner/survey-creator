@@ -166,7 +166,13 @@ export var settings = {
   },
   jsonEditor: {
     indentation: 2,
-    exportFileName: "survey.json"
+    exportFileName: "survey.json",
+    /**
+     * Set to true to treat unknown JSON properties as warnings instead of errors.
+     * When enabled, surveys with unknown properties will load normally and show warnings in the JSON editor.
+     * Default: false (unknown properties are treated as errors)
+     */
+    allowUnknownProperties: false
   },
   useLegacyIcons: false,
   pageContentLazyRendering: true,
