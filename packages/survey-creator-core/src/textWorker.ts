@@ -33,6 +33,11 @@ export abstract class SurveyTextWorkerError {
   public rowAt: number = -1;
   public columnAt: number = -1;
   private fixerValue: SurveyTextWorkerJsonErrorFixerBase;
+  /**
+   * Severity level: 'error' or 'warning'
+   */
+  public severity: "error" | "warning" = "error";
+  
   public constructor(public at: number, public text: string) {
   }
   public abstract getErrorType(): string;
@@ -157,6 +162,11 @@ export class SurveyTextWorkerJsonError extends SurveyTextWorkerError {
     this.errorType = jsonError.type;
     this.propertyName = jsonError["propertyName"];
     this.jsonObj = jsonError.jsonObj;
+    
+    // Set severity based on error type and settings
+    if (this.errorType === "unknownproperty" && settings.jsonEditor.allowUnknownProperties) {
+      this.severity = "warning";
+    }
   }
   protected createFixer(): SurveyTextWorkerJsonErrorFixerBase {
     if (this.errorType === "unknownproperty")
@@ -203,7 +213,14 @@ export class SurveyTextWorker {
     return !!this.surveyValue;
   }
   public get isJsonHasErrors(): boolean {
-    return this.errors.length > 0 || !this.isJsonCorrect;
+    const actualErrors = this.errors.filter(error => error.severity === "error");
+    return actualErrors.length > 0 || !this.isJsonCorrect;
+  }
+  public get warnings(): Array<SurveyTextWorkerError> {
+    return this.errors.filter(error => error.severity === "warning");
+  }
+  public get actualErrors(): Array<SurveyTextWorkerError> {
+    return this.errors.filter(error => error.severity === "error");
   }
   protected process() {
     try {

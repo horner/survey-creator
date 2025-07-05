@@ -70,8 +70,9 @@ export abstract class JsonEditorBaseModel extends Base {
   }
 
   protected setErrors(errors: Array<SurveyTextWorkerError>): void {
-    let hasErrors = errors.length > 0;
-    if (hasErrors) {
+    const actualErrors = errors.filter(error => error.severity === "error");
+    let hasErrors = actualErrors.length > 0;
+    if (errors.length > 0) {
       const actions = [];
       this.createErrorActions(errors).forEach(action => actions.push(action));
       this.errorList.setItems(actions);
@@ -83,6 +84,7 @@ export abstract class JsonEditorBaseModel extends Base {
     const res = [];
     let counter = 1;
     errors.forEach(error => {
+      const isWarning = error.severity === "warning";
       const line = error.rowAt > -1 ? "Line: " + (error.rowAt + 1) + ". " : "";
       let title = error.text;
       if (title.length > maxErrorLength + 3) {
@@ -91,21 +93,20 @@ export abstract class JsonEditorBaseModel extends Base {
       title = line + title;
       const at = error.at;
       res.push(new Action({
-        id: "error_" + counter++,
+        id: (isWarning ? "warning_" : "error_") + counter++,
         component: "json-error-item",
         title: title,
         tooltip: error.text,
-        iconName: "icon-error",
+        iconName: isWarning ? "icon-warning" : "icon-error",
         iconSize: "auto",
         data: {
           error: error,
-          showFixButton: error.isFixable,
+          showFixButton: error.isFixable && !isWarning, // Don't show fix button for warnings
           fixError: () => {
             this.text = error.fixError(this.text);
           },
           fixButtonIcon: "icon-fix",
-          //todo
-          fixButtonTitle: "Fix error"
+          fixButtonTitle: isWarning ? "Warning" : "Fix error"
         }
       }));
     });

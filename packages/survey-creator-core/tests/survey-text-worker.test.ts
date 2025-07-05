@@ -103,3 +103,114 @@ test("SurveyTextWorker, required properties", () => {
   const indent2 = lines[6].split(" ").length - 1;
   expect(indent2).toBe(indent1 + 3);
 });
+
+// Tests for unknown properties warning feature
+test("SurveyTextWorker, unknown properties as errors (default behavior)", () => {
+  // Import settings locally to avoid affecting other tests
+  const { settings } = require("../src/creator-settings");
+  const originalSetting = settings.jsonEditor.allowUnknownProperties;
+  
+  try {
+    // Ensure default behavior
+    settings.jsonEditor.allowUnknownProperties = false;
+    
+    const textWorker = createTextWorker({
+      elements: [
+        {
+          type: "text", 
+          name: "q1",
+          loincCode: "8310-5",
+          "x-tooltip": "Use a thermometer"
+        }
+      ]
+    });
+    
+    expect(textWorker.errors).toHaveLength(2); // Two unknown properties
+    expect(textWorker.actualErrors).toHaveLength(2); // All should be errors
+    expect(textWorker.warnings).toHaveLength(0); // No warnings
+    expect(textWorker.isJsonHasErrors).toBe(true); // Should have errors
+    
+    // Check that both errors are marked as errors
+    textWorker.errors.forEach(error => {
+      expect(error.severity).toBe("error");
+      expect(error.getErrorType()).toBe("unknownproperty");
+    });
+  } finally {
+    // Restore original setting
+    settings.jsonEditor.allowUnknownProperties = originalSetting;
+  }
+});
+
+test("SurveyTextWorker, unknown properties as warnings", () => {
+  const { settings } = require("../src/creator-settings");
+  const originalSetting = settings.jsonEditor.allowUnknownProperties;
+  
+  try {
+    // Enable warnings for unknown properties
+    settings.jsonEditor.allowUnknownProperties = true;
+    
+    const textWorker = createTextWorker({
+      elements: [
+        {
+          type: "text", 
+          name: "q1",
+          loincCode: "8310-5",
+          "x-tooltip": "Use a thermometer"
+        }
+      ]
+    });
+    
+    expect(textWorker.errors).toHaveLength(2); // Two unknown properties in total
+    expect(textWorker.actualErrors).toHaveLength(0); // No actual errors
+    expect(textWorker.warnings).toHaveLength(2); // Both should be warnings
+    expect(textWorker.isJsonHasErrors).toBe(false); // Should not have errors
+    expect(textWorker.isJsonCorrect).toBe(true); // JSON should be correct
+    
+    // Check that both are marked as warnings
+    textWorker.errors.forEach(error => {
+      expect(error.severity).toBe("warning");
+      expect(error.getErrorType()).toBe("unknownproperty");
+    });
+  } finally {
+    // Restore original setting
+    settings.jsonEditor.allowUnknownProperties = originalSetting;
+  }
+});
+
+test("SurveyTextWorker, mixed errors and warnings", () => {
+  const { settings } = require("../src/creator-settings");
+  const originalSetting = settings.jsonEditor.allowUnknownProperties;
+  
+  try {
+    // Enable warnings for unknown properties
+    settings.jsonEditor.allowUnknownProperties = true;
+    
+    const textWorker = createTextWorker({
+      elements: [
+        {
+          type: "text",
+          // Missing required name property (should be error)
+          loincCode: "8310-5" // Unknown property (should be warning)
+        }
+      ]
+    });
+    
+    expect(textWorker.errors).toHaveLength(2); // One error + one warning
+    expect(textWorker.actualErrors).toHaveLength(1); // One actual error (missing name)
+    expect(textWorker.warnings).toHaveLength(1); // One warning (unknown property)
+    expect(textWorker.isJsonHasErrors).toBe(true); // Should have errors due to missing name
+    
+    // Check error types
+    const actualError = textWorker.actualErrors[0];
+    const warning = textWorker.warnings[0];
+    
+    expect(actualError.severity).toBe("error");
+    expect(actualError.getErrorType()).toBe("requiredproperty");
+    
+    expect(warning.severity).toBe("warning");
+    expect(warning.getErrorType()).toBe("unknownproperty");
+  } finally {
+    // Restore original setting
+    settings.jsonEditor.allowUnknownProperties = originalSetting;
+  }
+});
